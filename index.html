@@ -116,7 +116,7 @@
     <main>
       <div class="intro">
         <div><div class="eyebrow">A little play, a lot of learning</div><h1>Let's think &amp; play!</h1><p>Pick a game and discover something together.</p></div>
-        <button class="sound" id="sound" type="button" aria-label="Turn sound on" aria-pressed="false" title="Turn sound on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5ZM16 9l5 6m0-6-5 6"/></svg></button>
+        <button class="sound" id="sound" type="button" aria-label="Turn sound off" aria-pressed="true" title="Turn sound off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5ZM15 9a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"/></svg></button>
       </div>
       <nav class="activities" aria-label="Choose an activity">
         <button class="activity" type="button" data-mode="match" aria-pressed="true"><span class="activity-icon" aria-hidden="true"><svg viewBox="0 0 28 28" fill="currentColor"><circle cx="9" cy="9" r="6"/><rect x="13" y="13" width="12" height="12" rx="3" opacity=".7"/></svg></span><span><strong>Shape match</strong><small>Find the same shape</small></span></button>
@@ -149,7 +149,7 @@
     const elements = Object.fromEntries(['game-label', 'kicker', 'question', 'subtitle', 'stage', 'answers', 'feedback', 'score', 'sound'].map(id => [id, document.getElementById(id)]));
     let mode = 'match';
     let score = 0;
-    let soundOn = false;
+    let soundOn = true;
     let audioContext;
     const randomItem = items => items[Math.floor(Math.random() * items.length)];
     const shuffle = items => [...items].sort(() => Math.random() - 0.5);
@@ -163,20 +163,22 @@
       };
       return `<svg viewBox="0 0 100 100" fill="${color}" stroke="${color}" aria-hidden="true">${paths[shape]}</svg>`;
     }
-    function playSound() {
+    function playSound(result = 'correct') {
       if (!soundOn) return;
       try {
         audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
+        const notes = result === 'correct' ? [523, 659, 784] : [392, 330];
+        const duration = notes.length * 0.13;
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.1);
+        notes.forEach((note, index) => oscillator.frequency.setValueAtTime(note, audioContext.currentTime + index * 0.13));
         gain.gain.setValueAtTime(0.08, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
         oscillator.connect(gain); gain.connect(audioContext.destination);
-        oscillator.start(); oscillator.stop(audioContext.currentTime + 0.3);
-      } catch (error) { /* Sound is optional. */ }
+        oscillator.start(); oscillator.stop(audioContext.currentTime + duration);
+      } catch (error) {}
     }
     function makeTile(shape, color) {
       return `<div class="stage-tile">${shapeSvg(shape, color)}</div>`;
@@ -219,6 +221,7 @@
             button.classList.add('wrong');
             elements.feedback.dataset.state = 'wrong';
             elements.feedback.textContent = 'Not quite. Let\'s try again!';
+            playSound('wrong');
             return;
           }
           button.classList.add('correct');
